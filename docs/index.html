@@ -1109,7 +1109,34 @@
       </div>
 
       <h2>Recent Barks</h2>
-      <div id="recentBarksList"></div>
+      <div id="recentBarksList" style="margin-bottom: 1.25rem;"></div>
+
+      <h2>Performance Benchmarks (vs Yarn/Ink)</h2>
+      <div class="card" style="border-left: 3px solid var(--success); font-size: 0.85rem;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.35rem;">
+          <span style="color: var(--text-muted);">Graph Node Step:</span>
+          <span style="color: var(--success); font-weight: 700; font-family: var(--font-mono);">466.13 ns (2.1M/s)</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.35rem;">
+          <span style="color: var(--text-muted);">Yarn / Ink C# Step:</span>
+          <span style="color: var(--text-muted); font-family: var(--font-mono);">~25-60 µs (80× faster)</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.35rem;">
+          <span style="color: var(--text-muted);">Full Story Traversal:</span>
+          <span style="color: var(--accent); font-weight: 600; font-family: var(--font-mono);">2.33 µs (429k/s)</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.35rem;">
+          <span style="color: var(--text-muted);">Expression Evaluator:</span>
+          <span style="color: var(--warning); font-family: var(--font-mono);">757.83 ns (1.3M/s)</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.6rem;">
+          <span style="color: var(--text-muted);">Bark Triage (100 barks):</span>
+          <span style="color: var(--success); font-family: var(--font-mono);">4.82 µs (48 ns/bark)</span>
+        </div>
+        <div style="border-top: 1px solid var(--panel-border); padding-top: 0.5rem; text-align: right;">
+          <a href="https://github.com/bhubbard/dialogger-rs/blob/main/BENCHMARKS.md" target="_blank" style="color: var(--accent); text-decoration: none; font-weight: 600; font-size: 0.75rem;">View Full Benchmarks Report &rarr;</a>
+        </div>
+      </div>
     </div>
   </div>
 
