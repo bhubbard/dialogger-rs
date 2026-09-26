@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>dialogger-rs | Branching Dialogue Graph & NPC Bark Engine</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --panel-bg: #161b22;
+      --panel-border: #30363d;
+      --accent: #58a6ff;
+      --accent-glow: rgba(88, 166, 255, 0.25);
+      --success: #3fb950;
+      --warning: #d29922;
+      --danger: #f85149;
+      --text: #c9d1d9;
+      --text-muted: #8b949e;
+      --text-bright: #f0f6fc;
+      --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      line-height: 1.5;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #090d13;
+      border-bottom: 1px solid var(--panel-border);
+      padding: 1rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .brand h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text-bright);
+      letter-spacing: -0.02em;
+    }
+
+    .badge {
+      background: #1f6feb26;
+      color: #58a6ff;
+      border: 1px solid #1f6feb;
+      font-size: 0.75rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      font-family: var(--font-mono);
+      font-weight: 600;
+    }
+
+    .nav-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.875rem;
+      transition: color 0.15s;
+      margin-left: 1rem;
+    }
+    .nav-links a:hover { color: var(--accent); }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 320px 1fr 340px;
+      flex: 1;
+      height: calc(100vh - 65px);
+      overflow: hidden;
+    }
+
+    @media (max-width: 1100px) {
+      .main-grid {
+        grid-template-columns: 1fr;
+        height: auto;
+        overflow: visible;
+      }
+    }
+
+    .sidebar, .center-panel, .right-panel {
+      padding: 1.25rem;
+      overflow-y: auto;
+      border-right: 1px solid var(--panel-border);
+    }
+
+    .right-panel {
+      border-right: none;
+      background: #11151c;
+    }
+
+    h2 {
+      font-size: 0.95rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 0.85rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .card {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1.25rem;
+    }
+
+    /* Dialogue Box */
+    .dialogue-box {
+      background: #161b22;
+      border: 2px solid #388bfd;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5), 0 0 16px var(--accent-glow);
+      border-radius: 10px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      min-height: 240px;
+      position: relative;
+    }
+
+    .speaker-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: #21262d;
+      border: 2px solid var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      font-weight: bold;
+    }
+
+    .speaker-meta {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .speaker-name {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-bright);
+    }
+
+    .expression-tag {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    .dialogue-text {
+      font-size: 1.15rem;
+      color: #f0f6fc;
+      line-height: 1.6;
+      flex: 1;
+      min-height: 60px;
+    }
+
+    .choices-container {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+
+    .choice-btn {
+      background: #21262d;
+      color: var(--text-bright);
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      font-size: 0.95rem;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.15s ease;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .choice-btn:hover:not(:disabled) {
+      background: #2f363d;
+      border-color: var(--accent);
+      transform: translateX(4px);
+    }
+
+    .choice-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      border-color: #21262d;
+    }
+
+    .choice-cond-tag {
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      color: var(--warning);
+      margin-left: 0.5rem;
+    }
+
+    /* Controls */
+    button.btn-primary {
+      background: #238636;
+      color: white;
+      border: 1px solid rgba(240, 246, 252, 0.1);
+      border-radius: 6px;
+      padding: 0.5rem 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.875rem;
+      transition: background 0.15s;
+    }
+    button.btn-primary:hover { background: #2ea043; }
+
+    button.btn-secondary {
+      background: #21262d;
+      color: var(--text);
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      padding: 0.45rem 0.85rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    button.btn-secondary:hover { background: #30363d; }
+
+    /* Graph Visualizer Canvas */
+    #graphCanvas {
+      width: 100%;
+      height: 240px;
+      background: #0d1117;
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      margin-bottom: 1rem;
+      display: block;
+    }
+
+    /* Variable Table */
+    .var-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.35rem 0;
+      border-bottom: 1px solid #21262d;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+    }
+
+    .var-key { color: var(--accent); }
+    .var-val { color: var(--success); font-weight: 600; }
+
+    /* Bark Panel */
+    .bark-item {
+      padding: 0.6rem;
+      background: #1c2128;
+      border-radius: 6px;
+      border-left: 3px solid var(--warning);
+      margin-bottom: 0.5rem;
+      font-size: 0.85rem;
+    }
+
+    .bark-speaker { font-weight: bold; color: var(--text-bright); }
+    .bark-meta { font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono); }
+
+    .cooldown-bar {
+      height: 3px;
+      background: #30363d;
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    .cooldown-fill {
+      height: 100%;
+      background: var(--warning);
+      width: 0%;
+      transition: width 0.1s linear;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div style="font-size: 1.5rem;">💬</div>
+      <div>
+        <h1>dialogger-rs</h1>
+        <span style="font-size: 0.8rem; color: var(--text-muted);">Pure Rust Branching Dialogue & NPC Bark Engine</span>
+      </div>
+      <span class="badge">Edition 2024</span>
+    </div>
+    <div class="nav-links">
+      <a href="https://github.com/bhubbard/dialogger-rs" target="_blank">GitHub Repository</a>
+      <a href="https://crates.io" target="_blank">Crates.io</a>
+    </div>
+  </header>
+
+  <div class="main-grid">
+    <!-- Left Panel: Graph & Scenarios -->
+    <div class="sidebar">
+      <h2>Scenario Presets</h2>
+      <div class="card">
+        <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.4rem;">Select Conversation:</label>
+        <select id="scenarioSelect" style="width: 100%; padding: 0.5rem; background: #0d1117; color: var(--text-bright); border: 1px solid var(--panel-border); border-radius: 6px; margin-bottom: 0.75rem;">
+          <option value="tavern">The Dragon's Flagon (Tavern Inquiry)</option>
+          <option value="guard">City Gate Guard (Bribery & Logic Gate)</option>
+          <option value="cyberpunk">Neon Alley (Hacker Blackmail)</option>
+        </select>
+        <button id="restartBtn" class="btn-secondary" style="width: 100%;">Restart Dialogue</button>
+      </div>
+
+      <h2>Graph Visualizer</h2>
+      <canvas id="graphCanvas"></canvas>
+
+      <h2>History Trace</h2>
+      <div class="card" style="max-height: 160px; overflow-y: auto;">
+        <ul id="historyList" style="font-family: var(--font-mono); font-size: 0.8rem; list-style: none;"></ul>
+      </div>
+    </div>
+
+    <!-- Center Panel: Interactive Dialogue Box -->
+    <div class="center-panel">
+      <h2>Dialogue Player</h2>
+      <div class="dialogue-box">
+        <div class="speaker-row">
+          <div class="avatar" id="avatarIcon">🧙‍♂️</div>
+          <div class="speaker-meta">
+            <div class="speaker-name" id="speakerName">Innkeeper Brom</div>
+            <div class="expression-tag" id="expressionTag">[expression: welcoming] • [voice: brom_greet_01.ogg]</div>
+          </div>
+        </div>
+
+        <div class="dialogue-text" id="dialogueText">
+          Welcome, weary traveler. Rest by the hearth, or seek you rumors of the shadow in the hills?
+        </div>
+
+        <div class="choices-container" id="choicesContainer">
+          <!-- Populated dynamically -->
+        </div>
+
+        <div id="continueBtnContainer" style="display: none; margin-top: 1rem;">
+          <button id="continueBtn" class="btn-primary" style="width: 100%;">Continue ▶</button>
+        </div>
+      </div>
+
+      <div style="margin-top: 1.5rem;">
+        <h2>Event & State Log</h2>
+        <div class="card" id="eventLog" style="height: 160px; overflow-y: auto; font-family: var(--font-mono); font-size: 0.82rem; color: #8b949e;">
+          [System] Initialized dialogue runner. Variable store synchronized.
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Panel: Variables & Ambient Barks -->
+    <div class="right-panel">
+      <h2>Variable Store <button class="btn-secondary" id="resetVarsBtn" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;">Reset</button></h2>
+      <div class="card" id="varTable">
+        <!-- Dynamically rendered -->
+      </div>
+
+      <h2>NPC Ambient Barks</h2>
+      <div class="card">
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+          Trigger contextual reaction barks with priority gating, cooldowns, and weighted repeat prevention.
+        </p>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.75rem;">
+          <button class="btn-secondary" onclick="triggerBark('combat_alert')">⚔️ Combat Alert</button>
+          <button class="btn-secondary" onclick="triggerBark('fleeing')">🏃 Fleeing</button>
+          <button class="btn-secondary" onclick="triggerBark('insult')">🤬 Taunt/Insult</button>
+          <button class="btn-secondary" onclick="triggerBark('idle_chatter')">💬 Idle Chatter</button>
+          <button class="btn-secondary" onclick="triggerBark('crime_witness')" style="grid-column: span 2;">🚨 Crime Witness</button>
+        </div>
+      </div>
+
+      <h2>Recent Barks</h2>
+      <div id="recentBarksList"></div>
+    </div>
+  </div>
+
+  <script>
+    // Scenario Graphs
+    const SCENARIOS = {
+      tavern: {
+        title: "The Dragon's Flagon",
+        start_node: "intro",
+        nodes: {
+          intro: {
+            type: "speech",
+            speaker: "Innkeeper Brom",
+            expression: "welcoming",
+            voice_asset: "brom_greet_01.ogg",
+            text: "Welcome, weary traveler! Rest by the hearth, or seek you rumors of the shadow in the hills?",
+            next: "choice_1"
+          },
+          choice_1: {
+            type: "choice",
+            prompt: "What do you say?",
+            choices: [
+              { id: "c_ale", text: "Pour me a pint of your strongest stout. (-5 Gold)", target: "buy_ale", condition: "gold >= 5" },
+              { id: "c_rumors", text: "Tell me about this shadow in the hills.", target: "rumor_node" },
+              { id: "c_quest", text: "I'm looking for high-paying contract work.", target: "quest_eval" }
+            ]
+          },
+          buy_ale: {
+            type: "set_variable",
+            variable: "gold",
+            op: "subtract",
+            value: 5,
+            next: "ale_event"
+          },
+          ale_event: {
+            type: "event",
+            event_name: "item_received",
+            payload: "Dwarven Stout",
+            next: "drank_ale"
+          },
+          drank_ale: {
+            type: "speech",
+            speaker: "Innkeeper Brom",
+            expression: "cheerful",
+            voice_asset: "brom_chuckle.ogg",
+            text: "Here you go, brewed right beneath the Iron Peaks! Ah, that will warm your bones.",
+            next: "choice_1"
+          },
+          rumor_node: {
+            type: "speech",
+            speaker: "Innkeeper Brom",
+            expression: "concerned",
+            voice_asset: "brom_whisper.ogg",
+            text: "They say an ancient wyrm stirs within the volcanic caldera. Smoke billows nightly.",
+            next: "unlock_quest"
+          },
+          unlock_quest: {
+            type: "set_variable",
+            variable: "knows_dragon_legend",
+            op: "assign",
+            value: true,
+            next: "choice_1"
+          },
+          quest_eval: {
+            type: "condition",
+            condition: "knows_dragon_legend == true",
+            then_node: "grant_quest",
+            else_node: "refuse_quest"
+          },
+          refuse_quest: {
+            type: "speech",
+            speaker: "Innkeeper Brom",
+            expression: "skeptical",
+            voice_asset: "brom_doubt.ogg",
+            text: "Contracts? You don't even know what's out there yet. Inquire around town first!",
+            next: "choice_1"
+          },
+          grant_quest: {
+            type: "speech",
+            speaker: "Innkeeper Brom",
+            expression: "serious",
+            voice_asset: "brom_serious.ogg",
+            text: "Since you understand the threat, speak with the Mayor at dawn. The bounty is 500 gold.",
+            next: "finish_quest"
+          },
+          finish_quest: {
+            type: "event",
+            event_name: "quest_started",
+            payload: "Hunt for the Wyrm",
+            next: null
+          }
+        }
+      },
+      guard: {
+        title: "City Gate Guard",
+        start_node: "guard_halt",
+        nodes: {
+          guard_halt: {
+            type: "speech",
+            speaker: "Captain Vane",
+            expression: "stern",
+            voice_asset: "vane_halt.ogg",
+            text: "Halt! The city gates are shut under martial decree. State your business.",
+            next: "guard_choices"
+          },
+          guard_choices: {
+            type: "choice",
+            prompt: "How will you bypass the guard?",
+            choices: [
+              { id: "bribe", text: "Perhaps 50 gold will grant entry? (-50 Gold)", target: "pay_bribe", condition: "gold >= 50" },
+              { id: "pass", text: "I carry the Royal Seal.", target: "check_seal", condition: "has_seal == true" },
+              { id: "threaten", text: "Stand aside or I'll cut you down.", target: "hostile" }
+            ]
+          },
+          pay_bribe: {
+            type: "set_variable",
+            variable: "gold",
+            op: "subtract",
+            value: 50,
+            next: "bribe_success"
+          },
+          bribe_success: {
+            type: "speech",
+            speaker: "Captain Vane",
+            expression: "smug",
+            voice_asset: "vane_chuckle.ogg",
+            text: "A true patriot who respects civil defense. Proceed, citizen.",
+            next: null
+          },
+          check_seal: {
+            type: "speech",
+            speaker: "Captain Vane",
+            expression: "salute",
+            voice_asset: "vane_salute.ogg",
+            text: "My apologies, Envoy! The gates open for you immediately.",
+            next: null
+          },
+          hostile: {
+            type: "event",
+            event_name: "combat_triggered",
+            payload: "City_Guards_Aggro",
+            next: "fight_speech"
+          },
+          fight_speech: {
+            type: "speech",
+            speaker: "Captain Vane",
+            expression: "enraged",
+            voice_asset: "vane_attack.ogg",
+            text: "Treason! To arms, men! Cut them down!",
+            next: null
+          }
+        }
+      },
+      cyberpunk: {
+        title: "Neon Alley Blackmail",
+        start_node: "hacker_intro",
+        nodes: {
+          hacker_intro: {
+            type: "speech",
+            speaker: "Zero-Day",
+            expression: "glitch",
+            voice_asset: "zeroday_vocoder.ogg",
+            text: "I decrypted your telemetry from Arasaka Tower. It's spicy.",
+            next: "hacker_choices"
+          },
+          hacker_choices: {
+            type: "choice",
+            prompt: "Deal with the netrunner:",
+            choices: [
+              { id: "counter_hack", text: "Upload ICE-breaker protocol.", target: "check_int", condition: "intel >= 15" },
+              { id: "buy_data", text: "Name your price in creds. (-100 Gold)", target: "pay_creds", condition: "gold >= 100" },
+              { id: "flatline", text: "Draw smart pistol.", target: "flatline_route" }
+            ]
+          },
+          check_int: {
+            type: "speech",
+            speaker: "Zero-Day",
+            expression: "shocked",
+            voice_asset: "zeroday_static.ogg",
+            text: "What the-- you bypassed my subnet proxy in 200 milliseconds?! Deal's off, I'm ghosting!",
+            next: null
+          },
+          pay_creds: {
+            type: "set_variable",
+            variable: "gold",
+            op: "subtract",
+            value: 100,
+            next: "creds_paid"
+          },
+          creds_paid: {
+            type: "speech",
+            speaker: "Zero-Day",
+            expression: "smirk",
+            voice_asset: "zeroday_accept.ogg",
+            text: "Cryptocreds received. Wiping your memory shards from the local cache. Clean slate.",
+            next: null
+          },
+          flatline_route: {
+            type: "speech",
+            speaker: "Zero-Day",
+            expression: "panicked",
+            voice_asset: "zeroday_alarm.ogg",
+            text: "Deploying flashbang and smoke! You'll never find me in Dogtown!",
+            next: null
+          }
+        }
+      }
+    };
+
+    // State
+    let currentScenarioKey = 'tavern';
+    let graph = SCENARIOS.tavern;
+    let currentNodeId = graph.start_node;
+    let variables = {
+      gold: 120,
+      knows_dragon_legend: false,
+      has_seal: false,
+      intel: 18,
+      health: 85
+    };
+    let history = [];
+
+    // Bark Data
+    const BARKS = [
+      { id: "c1", category: "combat_alert", speaker: "City Guard", text: "Intruder detected! Sound the alarm!", priority: 20, weight: 1.5, cooldown: 8 },
+      { id: "c2", category: "combat_alert", speaker: "City Guard", text: "Draw your weapons! We have hostile contact!", priority: 20, weight: 1.0, cooldown: 8 },
+      { id: "c3", category: "combat_alert", speaker: "Watchman", text: "Did I hear footsteps in the shadows?", priority: 5, weight: 1.0, cooldown: 5 },
+      { id: "f1", category: "fleeing", speaker: "Bandit Scout", text: "They're too strong! Fall back to the trench!", priority: 15, weight: 1.0, cooldown: 10 },
+      { id: "f2", category: "fleeing", speaker: "Mercenary", text: "I'm not getting paid enough to die here!", priority: 15, weight: 1.2, cooldown: 10 },
+      { id: "i1", category: "insult", speaker: "Gladiator", text: "You fight like a dairy farmer!", priority: 10, weight: 1.0, cooldown: 6 },
+      { id: "i2", category: "insult", speaker: "Bounty Hunter", text: "Is that the best stance your master taught you?", priority: 10, weight: 1.0, cooldown: 6 },
+      { id: "ch1", category: "idle_chatter", speaker: "Villager", text: "Looks like rain coming in over the ridge.", priority: 5, weight: 1.0, cooldown: 12 },
+      { id: "ch2", category: "idle_chatter", speaker: "Merchant", text: "Spices from the orient are getting expensive.", priority: 5, weight: 1.0, cooldown: 12 },
+      { id: "w1", category: "crime_witness", speaker: "Citizen", text: "Thief! Someone stop them! Guards!", priority: 25, weight: 1.0, cooldown: 10 }
+    ];
+
+    let barkCooldowns = {};
+
+    function logEvent(msg) {
+      const log = document.getElementById("eventLog");
+      const time = new Date().toLocaleTimeString();
+      log.innerHTML += `<div><span style="color:#58a6ff">[${time}]</span> ${msg}</div>`;
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function evalCondition(expr) {
+      if (!expr || expr.trim() === "") return true;
+      try {
+        const jsExpr = expr
+          .replace(/&&/g, ' && ')
+          .replace(/\|\|/g, ' || ')
+          .replace(/not\s+/gi, ' ! ');
+        const func = new Function(...Object.keys(variables), `return (${jsExpr});`);
+        return !!func(...Object.values(variables));
+      } catch (e) {
+        console.warn("Condition eval error:", expr, e);
+        return false;
+      }
+    }
+
+    function renderVariables() {
+      const table = document.getElementById("varTable");
+      table.innerHTML = "";
+      for (const [k, v] of Object.entries(variables)) {
+        const row = document.createElement("div");
+        row.className = "var-row";
+        row.innerHTML = `
+          <span class="var-key">${k}</span>
+          <span class="var-val">${v}</span>
+        `;
+        table.appendChild(row);
+      }
+    }
+
+    function renderHistory() {
+      const list = document.getElementById("historyList");
+      list.innerHTML = "";
+      history.forEach((id, idx) => {
+        const li = document.createElement("li");
+        li.style.color = idx === history.length - 1 ? "#58a6ff" : "#8b949e";
+        li.textContent = `${idx + 1}. [${id}]`;
+        list.appendChild(li);
+      });
+      list.scrollTop = list.scrollHeight;
+    }
+
+    function stepDialogue() {
+      if (!currentNodeId) {
+        document.getElementById("speakerName").textContent = "Conversation Concluded";
+        document.getElementById("dialogueText").textContent = "The interaction has ended.";
+        document.getElementById("choicesContainer").innerHTML = "";
+        document.getElementById("continueBtnContainer").style.display = "none";
+        logEvent("Dialogue reached END node.");
+        drawGraph();
+        return;
+      }
+
+      const node = graph.nodes[currentNodeId];
+      if (!node) {
+        logEvent(`ERROR: Node '${currentNodeId}' not found.`);
+        return;
+      }
+
+      history.push(currentNodeId);
+      renderHistory();
+      drawGraph();
+
+      if (node.type === "speech") {
+        document.getElementById("speakerName").textContent = node.speaker || "Narrator";
+        document.getElementById("expressionTag").textContent = `[expression: ${node.expression || "neutral"}] • [voice: ${node.voice_asset || "none"}]`;
+        document.getElementById("dialogueText").textContent = node.text;
+
+        const choicesBox = document.getElementById("choicesContainer");
+        choicesBox.innerHTML = "";
+
+        if (node.next) {
+          const nextNode = graph.nodes[node.next];
+          if (nextNode && nextNode.type === "choice") {
+            // Directly show choices
+            document.getElementById("continueBtnContainer").style.display = "none";
+            currentNodeId = node.next;
+            stepDialogue();
+            return;
+          }
+          document.getElementById("continueBtnContainer").style.display = "block";
+        } else {
+          document.getElementById("continueBtnContainer").style.display = "none";
+          currentNodeId = null;
+        }
+      } else if (node.type === "choice") {
+        const choicesBox = document.getElementById("choicesContainer");
+        choicesBox.innerHTML = "";
+        document.getElementById("continueBtnContainer").style.display = "none";
+
+        node.choices.forEach(ch => {
+          const available = evalCondition(ch.condition);
+          const btn = document.createElement("button");
+          btn.className = "choice-btn";
+          btn.disabled = !available;
+          btn.innerHTML = `
+            <span>${ch.text}</span>
+            ${ch.condition && !available ? `<span class="choice-cond-tag">🔒 (${ch.condition})</span>` : ""}
+          `;
+          btn.onclick = () => {
+            logEvent(`Player chose: "${ch.text}" -> target: ${ch.target}`);
+            currentNodeId = ch.target;
+            stepDialogue();
+          };
+          choicesBox.appendChild(btn);
+        });
+      } else if (node.type === "set_variable") {
+        const op = node.op || "assign";
+        const val = node.value;
+        const oldVal = variables[node.variable];
+
+        if (op === "assign") variables[node.variable] = val;
+        else if (op === "add") variables[node.variable] = (oldVal || 0) + val;
+        else if (op === "subtract") variables[node.variable] = (oldVal || 0) - val;
+        else if (op === "toggle") variables[node.variable] = !oldVal;
+
+        logEvent(`SetVariable: '${node.variable}' ${op} ${val} (New: ${variables[node.variable]})`);
+        renderVariables();
+        currentNodeId = node.next;
+        stepDialogue();
+      } else if (node.type === "condition") {
+        const res = evalCondition(node.condition);
+        logEvent(`Evaluated Condition: [${node.condition}] => ${res}`);
+        currentNodeId = res ? node.then_node : node.else_node;
+        stepDialogue();
+      } else if (node.type === "event") {
+        logEvent(`Game Event Fired: '${node.event_name}' (Payload: ${JSON.stringify(node.payload)})`);
+        currentNodeId = node.next;
+        stepDialogue();
+      }
+    }
+
+    // Graph Visualizer
+    function drawGraph() {
+      const canvas = document.getElementById("graphCanvas");
+      const ctx = canvas.getContext("2d");
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = canvas.clientWidth * dpr;
+      canvas.height = canvas.clientHeight * dpr;
+      ctx.scale(dpr, dpr);
+
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      ctx.clearRect(0, 0, w, h);
+
+      // Node layout calculation
+      const nodeKeys = Object.keys(graph.nodes);
+      const cols = Math.ceil(Math.sqrt(nodeKeys.length));
+      const rows = Math.ceil(nodeKeys.length / cols);
+      const cellW = (w - 40) / Math.max(cols, 1);
+      const cellH = (h - 40) / Math.max(rows, 1);
+
+      const positions = {};
+      nodeKeys.forEach((key, idx) => {
+        const r = Math.floor(idx / cols);
+        const c = idx % cols;
+        positions[key] = {
+          x: 30 + c * cellW + cellW / 2,
+          y: 25 + r * cellH + cellH / 2
+        };
+      });
+
+      // Draw edges
+      ctx.strokeStyle = "#30363d";
+      ctx.lineWidth = 1.5;
+      nodeKeys.forEach(key => {
+        const node = graph.nodes[key];
+        const fromPos = positions[key];
+        let targets = [];
+        if (node.next) targets.push(node.next);
+        if (node.then_node) targets.push(node.then_node);
+        if (node.else_node) targets.push(node.else_node);
+        if (node.choices) node.choices.forEach(ch => targets.push(ch.target));
+
+        targets.forEach(t => {
+          if (positions[t]) {
+            const toPos = positions[t];
+            ctx.beginPath();
+            ctx.moveTo(fromPos.x, fromPos.y);
+            ctx.lineTo(toPos.x, toPos.y);
+            ctx.stroke();
+          }
+        });
+      });
+
+      // Draw nodes
+      nodeKeys.forEach(key => {
+        const pos = positions[key];
+        const isCurrent = key === currentNodeId;
+        const isVisited = history.includes(key);
+
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, isCurrent ? 12 : 8, 0, Math.PI * 2);
+
+        if (isCurrent) {
+          ctx.fillStyle = "#58a6ff";
+          ctx.shadowColor = "#58a6ff";
+          ctx.shadowBlur = 10;
+        } else if (isVisited) {
+          ctx.fillStyle = "#3fb950";
+          ctx.shadowBlur = 0;
+        } else {
+          ctx.fillStyle = "#21262d";
+          ctx.shadowBlur = 0;
+        }
+        ctx.fill();
+        ctx.strokeStyle = isCurrent ? "#ffffff" : "#484f58";
+        ctx.lineWidth = isCurrent ? 2 : 1;
+        ctx.stroke();
+
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = isCurrent ? "#f0f6fc" : "#8b949e";
+        ctx.font = "9px ui-monospace, monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(key, pos.x, pos.y + 20);
+      });
+    }
+
+    // Bark System Trigger
+    window.triggerBark = function(category) {
+      const now = Date.now() / 1000;
+      const candidates = BARKS.filter(b => b.category === category)
+        .filter(b => !barkCooldowns[b.id] || now >= barkCooldowns[b.id]);
+
+      if (candidates.length === 0) {
+        logEvent(`[Bark] Category '${category}' all lines currently on cooldown.`);
+        return;
+      }
+
+      // Priority sort
+      const maxPri = Math.max(...candidates.map(c => c.priority));
+      const topPri = candidates.filter(c => c.priority === maxPri);
+
+      // Weighted random selection
+      const totalWeight = topPri.reduce((acc, c) => acc + c.weight, 0);
+      let rand = Math.random() * totalWeight;
+      let chosen = topPri[0];
+      for (const cand of topPri) {
+        rand -= cand.weight;
+        if (rand <= 0) {
+          chosen = cand;
+          break;
+        }
+      }
+
+      barkCooldowns[chosen.id] = now + chosen.cooldown;
+
+      // Render bark notification
+      const list = document.getElementById("recentBarksList");
+      const item = document.createElement("div");
+      item.className = "bark-item";
+      item.innerHTML = `
+        <div class="bark-speaker">${chosen.speaker} <span class="bark-meta">[pri: ${chosen.priority} | cd: ${chosen.cooldown}s]</span></div>
+        <div style="color: #f0f6fc; margin: 0.2rem 0;">"${chosen.text}"</div>
+        <div class="cooldown-bar"><div class="cooldown-fill" id="fill_${chosen.id}_${Date.now()}"></div></div>
+      `;
+      list.prepend(item);
+      if (list.children.length > 5) list.removeChild(list.lastChild);
+
+      logEvent(`[Bark Triggered] [${category}] ${chosen.speaker}: "${chosen.text}"`);
+
+      // Animate cooldown bar
+      const fill = item.querySelector(".cooldown-fill");
+      fill.style.width = "100%";
+      setTimeout(() => {
+        fill.style.transition = `width ${chosen.cooldown}s linear`;
+        fill.style.width = "0%";
+      }, 50);
+    };
+
+    // Event Listeners
+    document.getElementById("continueBtn").onclick = () => {
+      const node = graph.nodes[currentNodeId];
+      if (node && node.next) {
+        currentNodeId = node.next;
+        stepDialogue();
+      }
+    };
+
+    document.getElementById("scenarioSelect").onchange = (e) => {
+      currentScenarioKey = e.target.value;
+      graph = SCENARIOS[currentScenarioKey];
+      currentNodeId = graph.start_node;
+      history = [];
+      logEvent(`Switched scenario to: ${graph.title}`);
+      stepDialogue();
+    };
+
+    document.getElementById("restartBtn").onclick = () => {
+      currentNodeId = graph.start_node;
+      history = [];
+      logEvent("Restarted current scenario.");
+      stepDialogue();
+    };
+
+    document.getElementById("resetVarsBtn").onclick = () => {
+      variables = {
+        gold: 120,
+        knows_dragon_legend: false,
+        has_seal: false,
+        intel: 18,
+        health: 85
+      };
+      logEvent("Reset variable store to default state.");
+      renderVariables();
+      stepDialogue();
+    };
+
+    window.addEventListener("resize", drawGraph);
+
+    // Initial run
+    renderVariables();
+    stepDialogue();
+  </script>
+</body>
+</html>
