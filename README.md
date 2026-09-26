@@ -1,13 +1,13 @@
 # dialogger-rs
 
 [![Deploy GitHub Pages](https://github.com/bhubbard/dialogger-rs/actions/workflows/pages.yml/badge.svg)](https://github.com/bhubbard/dialogger-rs/actions/workflows/pages.yml)
-[![GitHub Pages](https://img.shields.io/badge/Live_Demo-GitHub_Pages-blue?style=flat&logo=github)](https://bhubbard.github.io/dialogger-rs/)
+[![GitHub Pages](https://img.shields.io/badge/Live_Demo-GitHub_Pages-blue?style=flat&logo=github)](https://code.brandonhubbard.com/dialogger-rs/)
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/License-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE)
 [![Rust: Edition 2024](https://img.shields.io/badge/Rust-2024_Edition-orange?logo=rust)](https://www.rust-lang.org/)
 
 A pure Rust implementation of branching dialogue graph schema, traversal runtime, boolean/numeric expression evaluator, and contextual NPC bark engine based on Evan Todd's **Dialogger**.
 
-🎮 **[Live Interactive Dialogue Player & Graph Visualizer](https://bhubbard.github.io/dialogger-rs/)**
+🎮 **[Live Interactive Dialogue Player & Graph Visualizer](https://code.brandonhubbard.com/dialogger-rs/)** (or [GitHub Pages mirror](https://bhubbard.github.io/dialogger-rs/))
 
 ---
 
