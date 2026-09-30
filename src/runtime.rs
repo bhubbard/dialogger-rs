@@ -570,15 +570,22 @@ fn parse_multiplicative(tokens: &mut Vec<Token>, vars: &VariableStore) -> Result
 }
 
 fn parse_unary(tokens: &mut Vec<Token>, vars: &VariableStore) -> Result<Value, RuntimeError> {
+    parse_unary_depth(tokens, vars, 0)
+}
+
+fn parse_unary_depth(tokens: &mut Vec<Token>, vars: &VariableStore, depth: usize) -> Result<Value, RuntimeError> {
+    if depth > 64 {
+        return Err(RuntimeError::ExpressionError("Maximum unary expression recursion depth exceeded".into()));
+    }
     if !tokens.is_empty() {
         if let Some(Token::Op(op)) = tokens.first() {
             if op == "!" {
                 tokens.remove(0);
-                let inner = parse_unary(tokens, vars)?;
+                let inner = parse_unary_depth(tokens, vars, depth + 1)?;
                 return Ok(Value::Bool(!inner.is_truthy()));
             } else if op == "-" {
                 tokens.remove(0);
-                let inner = parse_unary(tokens, vars)?;
+                let inner = parse_unary_depth(tokens, vars, depth + 1)?;
                 let num = inner.as_float().unwrap_or(0.0);
                 return Ok(Value::Float(-num));
             }
